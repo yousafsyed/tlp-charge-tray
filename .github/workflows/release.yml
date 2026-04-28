@@ -1,0 +1,104 @@
+name: Release Debian Package
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build and attach .deb
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag belongs to main
+        run: |
+          set -euo pipefail
+
+          git fetch origin main:refs/remotes/origin/main --tags
+
+          tag_commit="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
+          main_commit="$(git rev-parse origin/main)"
+
+          if ! git merge-base --is-ancestor "$tag_commit" "$main_commit"; then
+            echo "Tag $GITHUB_REF_NAME does not point to a commit reachable from origin/main." >&2
+            exit 1
+          fi
+
+      - name: Verify tag matches Debian package version
+        run: |
+          set -euo pipefail
+
+          package_version="$(dpkg-parsechangelog -S Version)"
+          if [ "$GITHUB_REF_NAME" != "$package_version" ] && [ "$GITHUB_REF_NAME" != "v$package_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Debian package version $package_version." >&2
+            echo "Use either $package_version or v$package_version." >&2
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            debhelper \
+            desktop-file-utils \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            valac
+
+      - name: Validate metadata
+        run: |
+          set -euo pipefail
+
+          desktop-file-validate data/charge-controller.desktop data/charge-controller-autostart.desktop
+          python3 -c "import xml.etree.ElementTree as ET; [ET.parse(p) for p in ['data/io.github.yousaf.ChargeController.policy','data/charge-controller.svg']]"
+          dpkg-source --before-build .
+
+      - name: Build package
+        run: |
+          set -euo pipefail
+
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist
+          mv ../charge-controller_*_amd64.deb dist/
+          ls -lh dist/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-package-${{ github.ref_name }}
+          path: dist/*.deb
+          if-no-files-found: error
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" dist/*.deb --clobber
+          else
+            gh release create "$TAG_NAME" dist/*.deb \
+              --title "$TAG_NAME" \
+              --notes "Automated Debian package build for $TAG_NAME."
+          fi

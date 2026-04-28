@@ -122,6 +122,23 @@ dpkg-source --before-build .
 dpkg-buildpackage -us -uc -b
 ```
 
+## Release
+
+Release builds are handled by GitHub Actions when a tag is pushed.
+
+1. Update `debian/changelog` so the package version is the release version.
+2. Commit the change to `main`.
+3. Tag the commit from `main`:
+
+```sh
+git tag v0.1.0
+git push origin main v0.1.0
+```
+
+The workflow verifies that the tag points to a commit reachable from `main`,
+checks that the tag matches the Debian package version, builds on Ubuntu 24.04,
+and attaches the generated `.deb` to the GitHub release.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

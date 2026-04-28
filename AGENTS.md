@@ -41,6 +41,14 @@ dpkg-source --before-build .
 dpkg-buildpackage -us -uc -b
 ```
 
+## Release Workflow
+
+- Release workflow: `.github/workflows/release.yml`.
+- Trigger: push a tag, usually `v<debian-changelog-version>`.
+- The workflow verifies that the tag commit is reachable from `origin/main`.
+- The workflow verifies that the tag matches the current Debian changelog version, with or without a leading `v`.
+- The workflow builds on `ubuntu-24.04` and attaches `dist/*.deb` to the matching GitHub release.
+
 ## Safety Notes
 
 - Do not rewrite this as Python; the intended app is a native packaged Vala utility.
