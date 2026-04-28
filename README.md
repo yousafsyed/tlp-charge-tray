@@ -124,7 +124,9 @@ dpkg-buildpackage -us -uc -b
 
 ## Release
 
-Release builds are handled by GitHub Actions when a tag is pushed.
+Release builds are handled by GitHub Actions when a tag is pushed. The workflow
+can also be run manually from the GitHub Actions tab to build a downloadable
+artifact without creating a release.
 
 1. Update `debian/changelog` so the package version is the release version.
 2. Commit the change to `main`.
@@ -138,6 +140,13 @@ git push origin main v0.1.0
 The workflow verifies that the tag points to a commit reachable from `main`,
 checks that the tag matches the Debian package version, builds on Ubuntu 24.04,
 and attaches the generated `.deb` to the GitHub release.
+
+For a manual release attachment, run the workflow manually with:
+
+- `release_tag`: an existing tag such as `v0.1.0`
+- `create_release`: enabled
+
+Manual release runs perform the same tag and version checks before uploading.
 
 ## License
 

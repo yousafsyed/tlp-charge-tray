@@ -44,10 +44,11 @@ dpkg-buildpackage -us -uc -b
 ## Release Workflow
 
 - Release workflow: `.github/workflows/release.yml`.
-- Trigger: push a tag, usually `v<debian-changelog-version>`.
+- Trigger: push a tag, usually `v<debian-changelog-version>`, or run manually with `workflow_dispatch`.
 - The workflow verifies that the tag commit is reachable from `origin/main`.
 - The workflow verifies that the tag matches the current Debian changelog version, with or without a leading `v`.
 - The workflow builds on `ubuntu-24.04` and attaches `dist/*.deb` to the matching GitHub release.
+- Manual runs without `create_release` only build and upload a workflow artifact.
 
 ## Safety Notes
 

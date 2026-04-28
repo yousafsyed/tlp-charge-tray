@@ -4,12 +4,23 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional existing tag to attach the .deb to, for example v0.1.0'
+        required: false
+        type: string
+      create_release:
+        description: 'Create or update the GitHub release for release_tag'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.event_name }}-${{ github.ref_name }}-${{ inputs.release_tag || 'artifact-only' }}
   cancel-in-progress: false
 
 jobs:
@@ -18,12 +29,13 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout tag
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Verify tag belongs to main
+        if: github.event_name == 'push'
         run: |
           set -euo pipefail
 
@@ -38,6 +50,7 @@ jobs:
           fi
 
       - name: Verify tag matches Debian package version
+        if: github.event_name == 'push'
         run: |
           set -euo pipefail
 
@@ -45,6 +58,40 @@ jobs:
           if [ "$GITHUB_REF_NAME" != "$package_version" ] && [ "$GITHUB_REF_NAME" != "v$package_version" ]; then
             echo "Tag $GITHUB_REF_NAME does not match Debian package version $package_version." >&2
             echo "Use either $package_version or v$package_version." >&2
+            exit 1
+          fi
+
+      - name: Verify manual release tag
+        if: github.event_name == 'workflow_dispatch' && inputs.create_release
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ inputs.release_tag }}" ]; then
+            echo "release_tag is required when create_release is enabled." >&2
+            exit 1
+          fi
+
+          git fetch origin main:refs/remotes/origin/main --tags
+
+          package_version="$(dpkg-parsechangelog -S Version)"
+          release_tag="${{ inputs.release_tag }}"
+
+          if [ "$release_tag" != "$package_version" ] && [ "$release_tag" != "v$package_version" ]; then
+            echo "Release tag $release_tag does not match Debian package version $package_version." >&2
+            echo "Use either $package_version or v$package_version." >&2
+            exit 1
+          fi
+
+          if ! git rev-parse --verify --quiet "refs/tags/$release_tag" >/dev/null; then
+            echo "Tag $release_tag does not exist." >&2
+            exit 1
+          fi
+
+          tag_commit="$(git rev-list -n 1 "$release_tag")"
+          main_commit="$(git rev-parse origin/main)"
+
+          if ! git merge-base --is-ancestor "$tag_commit" "$main_commit"; then
+            echo "Tag $release_tag does not point to a commit reachable from origin/main." >&2
             exit 1
           fi
 
@@ -84,14 +131,15 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debian-package-${{ github.ref_name }}
+          name: debian-package-${{ github.event_name == 'push' && github.ref_name || github.run_number }}
           path: dist/*.deb
           if-no-files-found: error
 
       - name: Create or update GitHub release
+        if: github.event_name == 'push' || inputs.create_release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
         run: |
           set -euo pipefail
 
