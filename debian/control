@@ -1,0 +1,29 @@
+Source: charge-controller
+Section: utils
+Priority: optional
+Maintainer: Yousaf <yousaf@localhost>
+Build-Depends:
+ debhelper-compat (= 13),
+ meson,
+ ninja-build,
+ valac,
+ pkg-config,
+ libgtk-3-dev,
+ libayatana-appindicator3-dev
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: charge-controller
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ tlp,
+ pkexec,
+ policykit-1
+Recommends:
+ gnome-shell-extension-appindicator
+Description: ThinkPad battery charge limit tray app
+ Charge Controller is a small GTK tray application for Ubuntu desktops.
+ It controls ThinkPad battery charge thresholds through TLP and uses
+ Polkit for privileged changes.

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Charge Controller
+Comment=Control ThinkPad battery charge limits from the tray
+Exec=charge-controller
+Icon=charge-controller
+Terminal=false
+Categories=Utility;GTK;
+StartupNotify=false

@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+	if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files tlp.service >/dev/null 2>&1; then
+		systemctl enable tlp.service >/dev/null 2>&1 || true
+		systemctl start tlp.service >/dev/null 2>&1 || true
+	fi
+fi
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,28 @@
+# Meson and compiler output
+build/
+builddir/
+obj-*/
+compile_commands.json
+*.o
+*.a
+*.so
+*.vala.c
+
+# Debian package build output
+debian/.debhelper/
+debian/charge-controller/
+debian/tmp/
+debian/debhelper-build-stamp
+debian/files
+debian/*.debhelper.log
+debian/*.substvars
+*.deb
+*.ddeb
+*.buildinfo
+*.changes
+
+# Local/editor noise
+*~
+*.swp
+.DS_Store
+.codex
