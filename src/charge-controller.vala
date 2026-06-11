@@ -6,12 +6,17 @@ public class ChargeControllerApp : Gtk.Application {
     private const string ICON_NAME = "charge-controller";
     private const string BATTERY = "BAT0";
     private const string INSTALLED_HELPER = "/usr/lib/charge-controller/charge-controller-helper";
+    private const string CPU_GOVERNOR = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor";
+    private const string CPU_AVAILABLE_GOVERNORS = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
 
     private Indicator? indicator;
     private Gtk.MenuItem? status_item;
     private Gtk.MenuItem? service_item;
     private Gtk.MenuItem? limit_item;
     private Gtk.MenuItem? full_item;
+    private Gtk.MenuItem? cpu_status_item;
+    private Gtk.MenuItem? cpu_auto_item;
+    private Gtk.MenuItem? cpu_manual_item;
 
     public ChargeControllerApp () {
         Object (
@@ -65,6 +70,24 @@ public class ChargeControllerApp : Gtk.Application {
 
         menu.append (new Gtk.SeparatorMenuItem ());
 
+        cpu_status_item = new Gtk.MenuItem.with_label ("Reading CPU governor...");
+        cpu_status_item.sensitive = false;
+        menu.append (cpu_status_item);
+
+        cpu_auto_item = new Gtk.MenuItem.with_label (
+            "CPU: Auto (performance on AC / balanced on battery)"
+        );
+        cpu_auto_item.activate.connect (
+            () => apply_helper ({ "governor-auto" }, "automatic CPU governor")
+        );
+        menu.append (cpu_auto_item);
+
+        cpu_manual_item = new Gtk.MenuItem.with_label ("CPU: Manual");
+        cpu_manual_item.set_submenu (build_governor_menu ());
+        menu.append (cpu_manual_item);
+
+        menu.append (new Gtk.SeparatorMenuItem ());
+
         var quit_item = new Gtk.MenuItem.with_label ("Quit");
         quit_item.activate.connect (() => {
             release ();
@@ -82,6 +105,40 @@ public class ChargeControllerApp : Gtk.Application {
         });
     }
 
+    private Gtk.Menu build_governor_menu () {
+        var submenu = new Gtk.Menu ();
+        foreach (var governor in available_governors ()) {
+            var item = new Gtk.MenuItem.with_label (governor);
+            var name = governor;
+            item.activate.connect (
+                () => apply_helper (
+                    { "governor-set", name },
+                    name + " CPU governor"
+                )
+            );
+            submenu.append (item);
+        }
+        if (available_governors ().length == 0) {
+            var item = new Gtk.MenuItem.with_label ("No governors available");
+            item.sensitive = false;
+            submenu.append (item);
+        }
+        submenu.show_all ();
+        return submenu;
+    }
+
+    private string[] available_governors () {
+        var contents = read_first ({ CPU_AVAILABLE_GOVERNORS }, "");
+        string[] result = {};
+        foreach (var token in contents.split (" ")) {
+            var name = token.strip ();
+            if (name != "") {
+                result += name;
+            }
+        }
+        return result;
+    }
+
     private void set_actions_sensitive (bool enabled) {
         if (limit_item != null) {
             limit_item.sensitive = enabled;
@@ -89,9 +146,19 @@ public class ChargeControllerApp : Gtk.Application {
         if (full_item != null) {
             full_item.sensitive = enabled;
         }
+        if (cpu_auto_item != null) {
+            cpu_auto_item.sensitive = enabled;
+        }
+        if (cpu_manual_item != null) {
+            cpu_manual_item.sensitive = enabled;
+        }
     }
 
     private void apply_mode (string mode, string display_name) {
+        apply_helper ({ mode }, display_name);
+    }
+
+    private void apply_helper (string[] helper_args, string display_name) {
         set_actions_sensitive (false);
         set_status_label ("Applying " + display_name + "...");
         drain_events ();
@@ -100,7 +167,10 @@ public class ChargeControllerApp : Gtk.Application {
         string? stderr_text = null;
 
         try {
-            string[] argv = { "pkexec", helper_path (), mode };
+            string[] argv = { "pkexec", helper_path () };
+            foreach (var arg in helper_args) {
+                argv += arg;
+            }
             var subprocess = new Subprocess.newv (
                 argv,
                 SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_PIPE
@@ -164,7 +234,15 @@ public class ChargeControllerApp : Gtk.Application {
             indicator.set_label (capacity + "%", "100%");
         }
 
+        refresh_cpu_governor_status ();
         refresh_tlp_service_status ();
+    }
+
+    private void refresh_cpu_governor_status () {
+        var governor = read_first ({ CPU_GOVERNOR }, "unavailable");
+        if (cpu_status_item != null) {
+            cpu_status_item.set_label ("CPU governor: " + governor);
+        }
     }
 
     private void refresh_tlp_service_status () {

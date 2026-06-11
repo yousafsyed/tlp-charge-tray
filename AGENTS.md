@@ -53,7 +53,8 @@ dpkg-buildpackage -us -uc -b
 ## Safety Notes
 
 - Do not rewrite this as Python; the intended app is a native packaged Vala utility.
-- Do not run the helper, `pkexec`, or TLP-changing commands unless the user explicitly asks to apply charge settings.
-- The helper must only accept the two supported modes: `limit-80` and `charge-100`.
-- The helper owns only the marked `# BEGIN charge-controller` / `# END charge-controller` block in `/etc/tlp.conf`.
+- Do not run the helper, `pkexec`, or TLP-changing commands unless the user explicitly asks to apply charge or CPU settings.
+- The helper accepts: `limit-80`, `charge-100`, `governor-auto`, and `governor-set <governor>` (the governor is validated against `scaling_available_governors`).
+- `governor-auto` sets `performance` on AC and a balanced governor on battery (prefers `schedutil`/`ondemand`, falls back to `powersave` on `intel_pstate`).
+- The helper owns only the marked `# BEGIN charge-controller` / `# END charge-controller` block in `/etc/tlp.conf`. That block may hold both charge thresholds (`START_/STOP_CHARGE_THRESH_BAT0`) and governor settings (`CPU_SCALING_GOVERNOR_ON_AC/_ON_BAT`); each dimension is managed independently without clobbering the other.
 - Keep generated Meson/Debhelper artifacts out of source control; `.gitignore` covers `obj-*`, `debian/.debhelper`, package outputs, and generated C.
