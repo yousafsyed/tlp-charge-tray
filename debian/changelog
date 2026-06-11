@@ -1,3 +1,10 @@
+charge-controller (0.1.1) noble; urgency=medium
+
+  * Add CPU scaling governor management (auto: performance on AC / balanced on
+    battery; manual: pick a governor). Persisted via TLP and applied live.
+
+ -- Yousaf <yousaf@localhost>  Thu, 11 Jun 2026 16:30:00 +0200
+
 charge-controller (0.1.0) noble; urgency=medium
 
   * Initial release.
