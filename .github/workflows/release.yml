@@ -63,35 +63,38 @@ jobs:
 
       - name: Verify manual release tag
         if: github.event_name == 'workflow_dispatch' && inputs.create_release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
 
-          if [ -z "${{ inputs.release_tag }}" ]; then
+          if [ -z "$RELEASE_TAG" ]; then
             echo "release_tag is required when create_release is enabled." >&2
             exit 1
           fi
 
           git fetch origin main:refs/remotes/origin/main --tags
 
-          package_version="$(dpkg-parsechangelog -S Version)"
-          release_tag="${{ inputs.release_tag }}"
-
-          if [ "$release_tag" != "$package_version" ] && [ "$release_tag" != "v$package_version" ]; then
-            echo "Release tag $release_tag does not match Debian package version $package_version." >&2
-            echo "Use either $package_version or v$package_version." >&2
+          if ! git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "Tag $RELEASE_TAG does not exist." >&2
             exit 1
           fi
 
-          if ! git rev-parse --verify --quiet "refs/tags/$release_tag" >/dev/null; then
-            echo "Tag $release_tag does not exist." >&2
-            exit 1
-          fi
-
-          tag_commit="$(git rev-list -n 1 "$release_tag")"
+          tag_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
           main_commit="$(git rev-parse origin/main)"
 
           if ! git merge-base --is-ancestor "$tag_commit" "$main_commit"; then
-            echo "Tag $release_tag does not point to a commit reachable from origin/main." >&2
+            echo "Tag $RELEASE_TAG does not point to a commit reachable from origin/main." >&2
+            exit 1
+          fi
+
+          git checkout --detach "$RELEASE_TAG"
+
+          package_version="$(dpkg-parsechangelog -S Version)"
+
+          if [ "$RELEASE_TAG" != "$package_version" ] && [ "$RELEASE_TAG" != "v$package_version" ]; then
+            echo "Release tag $RELEASE_TAG does not match Debian package version $package_version." >&2
+            echo "Use either $package_version or v$package_version." >&2
             exit 1
           fi
 
