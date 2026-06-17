@@ -381,19 +381,37 @@ public class ChargeControllerHelper {
                 continue;
             }
 
-            try {
-                FileUtils.set_contents (path, governor);
-                wrote_any = true;
-            } catch (Error err) {
-                throw new HelperError.GOVERNOR (
-                    "Failed to set governor on %s: %s".printf (name, err.message)
-                );
-            }
+            write_sysfs (path, governor, name);
+            wrote_any = true;
         }
 
         if (!wrote_any) {
             throw new HelperError.GOVERNOR (
                 "No writable CPU scaling_governor nodes were found."
+            );
+        }
+    }
+
+    // sysfs nodes must be written in place; FileUtils.set_contents writes a temp
+    // file and renames it, which sysfs rejects. Open and write the node directly.
+    private static void write_sysfs (string path, string value, string label)
+        throws HelperError {
+        var fd = Posix.open (path, Posix.O_WRONLY);
+        if (fd < 0) {
+            throw new HelperError.GOVERNOR (
+                "Failed to open %s: %s".printf (label, Posix.strerror (Posix.errno))
+            );
+        }
+
+        var written = Posix.write (fd, (char[]) value.data, value.length);
+        var write_errno = Posix.errno;
+        Posix.close (fd);
+
+        if (written < 0) {
+            throw new HelperError.GOVERNOR (
+                "Failed to set governor on %s: %s".printf (
+                    label, Posix.strerror (write_errno)
+                )
             );
         }
     }
