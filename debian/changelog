@@ -1,3 +1,10 @@
+charge-controller (0.1.2) noble; urgency=medium
+
+  * Fix CPU governor changes failing with a permission error by writing sysfs
+    nodes in place instead of via a temp-file rename.
+
+ -- Yousaf <yousaf@localhost>  Wed, 17 Jun 2026 12:00:00 +0200
+
 charge-controller (0.1.1) noble; urgency=medium
 
   * Add CPU scaling governor management (auto: performance on AC / balanced on
